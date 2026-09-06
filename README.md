@@ -50,7 +50,7 @@ src/app/
     clientes/[id]/       → LUI-11, LUI-12, LUI-13, LUI-17
     ventas/              → LUI-18, LUI-19, LUI-20
     equipo/              → LUI-24, LUI-25
-    cuenta/              → LUI-7 (perfil — falta issue propio en Linear)
+    cuenta/              → LUI-71
 src/components/
   ui/                    → design system (Button, Input, Card, Badge…)
   ConvexClientProvider.tsx
