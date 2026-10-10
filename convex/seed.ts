@@ -142,3 +142,36 @@ export const poblar = internalMutation({
     };
   },
 });
+
+/**
+ * Solo los usuarios del equipo, sin datos de ejemplo. Es lo que hay que correr
+ * en PRODUCCIÓN: sin un registro en `usuarios` nadie entra aunque Clerk lo
+ * autentique, pero los clientes de muestra serían morralla en la base real.
+ *
+ * Los emails deben coincidir con los invitados en Clerk.
+ *
+ * Idempotente: no toca a quien ya exista, y no pisa `authTokenIdentifier`.
+ */
+export const poblarUsuarios = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const equipo = [
+      { nombre: "Marta López", email: "marta@acme.es", rol: "propietaria" as const },
+      { nombre: "Carlos Ruiz", email: "carlos@betadigital.com", rol: "comercial" as const },
+    ];
+
+    const creados: string[] = [];
+    for (const u of equipo) {
+      const existe = await ctx.db
+        .query("usuarios")
+        .withIndex("by_email", (q) => q.eq("email", u.email))
+        .unique();
+      if (existe === null) {
+        await ctx.db.insert("usuarios", u);
+        creados.push(u.email);
+      }
+    }
+
+    return { creados, yaExistian: equipo.length - creados.length };
+  },
+});
