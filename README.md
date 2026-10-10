@@ -109,7 +109,6 @@ Design/                  → handoff de diseño y design system (referencia)
   `railway.json` **despliega Convex y Next en el mismo comando**:
 
   ```
-  npx convex codegen --typecheck disable && \
   npx convex deploy --cmd 'npm run build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL
   ```
 

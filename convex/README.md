@@ -13,9 +13,12 @@ Está commiteado a propósito, y por eso se retiró del `.gitignore`:
   1** y el codegen en el **paso 3**. Es decir: cuando Next se construye, el
   codegen todavía no ha pasado. Sin estos ficheros en el repo, el build falla.
 
-Por eso el `buildCommand` de `railway.json` además ejecuta `npx convex codegen`
-antes del deploy: así un `_generated` olvidado o desactualizado no puede romper
-producción.
+No añadir `npx convex codegen` al `buildCommand` de Railway "por si acaso":
+**ese comando no es local**. Pese a lo que sugiere su `--help`, se conecta al
+deployment ("Uploading functions to Convex"), así que sin `CONVEX_DEPLOYMENT`
+ni `CONVEX_DEPLOY_KEY` aborta con *"No CONVEX_DEPLOYMENT set"* y tumba el
+build antes de llegar al deploy. Ya pasó una vez. La garantía es tener estos
+ficheros versionados, no regenerarlos durante el build.
 
 Para regenerarlos en local: `npx convex dev` (lo hace en caliente) o
 `npx convex codegen`.
