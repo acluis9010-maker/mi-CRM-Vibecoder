@@ -30,5 +30,7 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // `convex/` lo typecheckea convex/tsconfig.json, que exige target ESNext y
+  // lib ES2023; dejarlo aqui lo comprobaria dos veces con opciones distintas.
+  "exclude": ["node_modules", "convex"]
 }

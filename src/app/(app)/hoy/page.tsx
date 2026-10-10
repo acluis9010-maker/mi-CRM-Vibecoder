@@ -1,5 +1,5 @@
-import { ScreenPlaceholder } from "@/components/ScreenPlaceholder";
+import { HoyScreen } from "@/components/hoy/HoyScreen";
 
 export default function HoyPage() {
-  return <ScreenPlaceholder title="Hoy" linearRef="LUI-21" />;
+  return <HoyScreen />;
 }

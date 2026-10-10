@@ -1,23 +1,36 @@
 "use client";
 
-import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ConvexReactClient } from "convex/react";
+import { ConvexProviderWithClerk } from "convex/react-clerk";
+import { useAuth } from "@clerk/nextjs";
 import type { ReactNode } from "react";
 
+/**
+ * Puente Convex ↔ Clerk. Sin él, `ctx.auth.getUserIdentity()` devolvería null
+ * siempre y toda la autorización de `convex/lib/authz.ts` rechazaría incluso a
+ * los usuarios con sesión.
+ *
+ * Debe ir DENTRO de un <ClerkProvider> (ver src/app/layout.tsx).
+ */
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
-// null hasta que se corra `npx convex dev` y exista NEXT_PUBLIC_CONVEX_URL
-// (así el scaffold arranca en local sin romperse antes de conectar Convex).
-const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
+if (!convexUrl) {
+  // Se lanza en lugar de degradar en silencio: antes esto devolvía los children
+  // sin provider, con lo que el build y el SSR pasaban y la app solo fallaba al
+  // primer `useQuery`, en el navegador y sin rastro en los logs del servidor.
+  // En producción la URL la inyecta `convex deploy --cmd-url-env-var-name`.
+  throw new Error(
+    "Falta NEXT_PUBLIC_CONVEX_URL. En local lo escribe `npx convex dev`; " +
+      "en Railway lo inyecta el buildCommand con `convex deploy --cmd-url-env-var-name`."
+  );
+}
+
+const convex = new ConvexReactClient(convexUrl);
 
 export function ConvexClientProvider({ children }: { children: ReactNode }) {
-  if (!convex) {
-    if (typeof window !== "undefined") {
-      console.warn(
-        "[Convex] NEXT_PUBLIC_CONVEX_URL no está definida todavía. " +
-          "Corre `npx convex dev` para crear/enlazar el proyecto de Convex."
-      );
-    }
-    return <>{children}</>;
-  }
-  return <ConvexProvider client={convex}>{children}</ConvexProvider>;
+  return (
+    <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+      {children}
+    </ConvexProviderWithClerk>
+  );
 }

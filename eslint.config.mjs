@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Handoff de diseño: runtime/bundle de terceros, no es código de la app.
     "Design/**",
+    // Generado por `npx convex dev`/`codegen`: se versiona (lo necesita
+    // `npm run build`) pero no se lintea — sus directivas se regeneran.
+    "convex/_generated/**",
   ]),
 ]);
 

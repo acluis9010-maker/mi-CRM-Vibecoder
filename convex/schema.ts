@@ -15,9 +15,16 @@ export default defineSchema({
     nombre: v.string(),
     email: v.string(),
     rol: v.union(v.literal("propietaria"), v.literal("comercial")),
-    // Autenticación: punto de integración pendiente (ver LUI-7) — no se
-    // guarda contraseña aquí, la resuelve el proveedor de auth elegido.
-  }).index("by_email", ["email"]),
+    // Autenticación (LUI-7): la resuelve Clerk — aquí no se guarda contraseña.
+    // Enlace con la identidad: `tokenIdentifier` de Convex (claims sub + iss),
+    // NO `subject`. Los tipos de Convex documentan que tokenIdentifier es
+    // "globally unique... even from a different identity provider", mientras
+    // que subject "not necessarily unique across different providers".
+    // Se reclama en el primer login (ver usuarios.reclamarActual).
+    authTokenIdentifier: v.optional(v.string()),
+  })
+    .index("by_email", ["email"])
+    .index("by_auth_token", ["authTokenIdentifier"]),
 
   clientes: defineTable({
     nombre: v.string(),
@@ -67,7 +74,11 @@ export default defineSchema({
     fechaHecho: v.optional(v.string()),
   })
     .index("by_cliente", ["clienteId"])
-    .index("by_vence", ["vence"]),
+    .index("by_vence", ["vence"])
+    // Cubre por completo la consulta de la pantalla Hoy: pendientes con
+    // vencimiento <= hoy. Sin este índice habría que traer los futuros y
+    // filtrarlos en cliente (hotpath sin cota).
+    .index("by_hecho_vence", ["hecho", "vence"]),
 
   ventas: defineTable({
     clienteId: v.id("clientes"),

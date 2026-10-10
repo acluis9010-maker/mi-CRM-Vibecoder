@@ -56,6 +56,44 @@
   --shadow-sm: 0 1px 2px rgba(16, 24, 32, 0.06), 0 1px 3px rgba(16, 24, 32, 0.05);
   --shadow-md: 0 2px 4px rgba(16, 24, 32, 0.05), 0 4px 12px rgba(16, 24, 32, 0.06);
   --shadow-lg: 0 8px 24px rgba(16, 24, 32, 0.1);
+
+  --radius-full: 9999px;
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --duration-fast: 150ms;
+}
+
+/*
+  Tokens de control que NO son namespaces de Tailwind: no generan utilidades,
+  asi que se referencian a mano. OJO con la sintaxis: en Tailwind v4
+  `h-[--control-h]` compila a `height: --control-h` (CSS invalido). Usar
+  siempre `h-[var(--control-h)]`.
+*/
+:root {
+  /* Alto de la tab bar movil: el toast se posiciona a partir de este valor. */
+  --tabbar-h: 56px;
+
+  --control-h: 48px;
+  --control-h-compact: 44px;
+  --touch-min: 44px;
+  --focus-ring: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-focus);
+}
+
+/* Animaciones compartidas (portadas de _ds/base.css y del prototipo) */
+@keyframes vibe-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes vibe-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+@keyframes vibe-slide-up {
+  from { transform: translateY(44px); }
+  to { transform: translateY(0); }
+}
+@keyframes vibe-pop-in {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 /* Modo oscuro (opt-in vía data-theme="dark") — redefine solo los semánticos */
@@ -73,7 +111,7 @@
   --color-border: #2a2e33;
   --color-border-strong: #3a3f45;
 
-  --color-text: #ececee;
+  --color-text: #ecedee;
   --color-text-muted: #9ba1a8;
   --color-text-subtle: #71777e;
 

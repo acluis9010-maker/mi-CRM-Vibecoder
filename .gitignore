@@ -34,8 +34,9 @@ yarn-error.log*
 .env*
 !.env*.example
 
-# convex (regenerado por `npx convex dev`)
-convex/_generated/
+# convex/_generated SI se commitea: `npm run build` lo necesita para typecheckear
+# (ver `npx convex codegen --help`), y en Railway el codegen de `convex deploy`
+# corre DESPUES del build con --cmd. Regenerarlo con `npx convex dev`/`codegen`.
 
 # railway
 .railway
