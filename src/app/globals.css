@@ -65,9 +65,16 @@
 
 /*
   Tokens de control que NO son namespaces de Tailwind: no generan utilidades,
-  asi que se referencian a mano. OJO con la sintaxis: en Tailwind v4
-  `h-[--control-h]` compila a `height: --control-h` (CSS invalido). Usar
-  siempre `h-[var(--control-h)]`.
+  asi que se referencian a mano.
+
+  OJO CON LA SINTAXIS: en Tailwind v4 hay que envolver la variable en var()
+  dentro de los corchetes. Si se pone solo el nombre del token, compila a una
+  declaracion sin var() y el CSS es invalido.
+
+  Y OJO CON LOS COMENTARIOS: Tailwind escanea los ficheros fuente buscando
+  candidatos a clase, comentarios incluidos. Escribir aqui un ejemplo con la
+  forma de una clase genera esa utilidad de verdad — ya rompio el build una vez.
+  Por eso los ejemplos de esta nota van descritos en prosa.
 */
 :root {
   /* Alto de la tab bar movil: el toast se posiciona a partir de este valor. */

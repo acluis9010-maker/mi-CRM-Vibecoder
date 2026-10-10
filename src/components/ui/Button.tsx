@@ -7,8 +7,9 @@ import { Spinner } from "./Spinner";
  * Alturas 48px (móvil) / 44px compacto, radio 6px, peso 600 (500 en
  * secondary/ghost). Una sola acción primaria por vista (design-2.md §1).
  *
- * `--control-h` vive en :root y no genera utilidad, de ahí `h-[var(...)]`:
- * `h-[--control-h]` compilaría a `height: --control-h`, que es CSS inválido.
+ * `--control-h` vive en :root y no genera utilidad propia, así que se referencia
+ * envolviéndolo en var() dentro de los corchetes. Puesto a pelo —solo el nombre
+ * del token— el CSS resultante sería inválido.
  */
 type Variante = "primary" | "secondary" | "ghost" | "destructive";
 
