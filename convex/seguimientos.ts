@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireUsuario } from "./lib/authz";
@@ -51,16 +52,37 @@ export const listarPendientes = query({
   },
 });
 
-/** Marca un seguimiento como hecho. `fechaHecho` la calcula el cliente (ver arriba). */
+/**
+ * Marca un seguimiento como hecho. `fechaHecho` la calcula el cliente (ver arriba).
+ *
+ * Rechaza marcar uno que YA está hecho en vez de sobrescribirlo. Importa porque
+ * esto es un endpoint de escritura alcanzable sin pasar por la interfaz: con un
+ * `id` conocido, cualquier usuario dado de alta puede llamarlo directamente.
+ * Sin esta comprobación, una llamada repetida pisaría la `fechaHecho` original
+ * —y con ella el token que usa `desmarcar` para detectar conflictos—.
+ *
+ * Devuelve un resultado discriminado en vez de lanzar: un reintento benigno o
+ * una carrera no deberían convertirse en un error.
+ *
+ * Lo que esta mutation NO comprueba es a quién pertenece el seguimiento: el
+ * scoping por usuario es deuda aceptada (R13, Fase 2) — en el MVP todos ven y
+ * gestionan la misma lista, por decisión de producto.
+ */
 export const marcarHecho = mutation({
   args: { id: v.id("seguimientos"), fechaHecho: v.string() },
   handler: async (ctx, { id, fechaHecho }) => {
     await requireUsuario(ctx);
 
     const seg = await ctx.db.get(id);
-    if (seg === null) throw new Error("Ese seguimiento ya no existe.");
+    if (seg === null) {
+      throw new ConvexError("Ese seguimiento ya no existe.");
+    }
+    if (seg.hecho) {
+      return { marcado: false, motivo: "ya estaba hecho" as const };
+    }
 
     await ctx.db.patch(id, { hecho: true, fechaHecho });
+    return { marcado: true, motivo: null };
   },
 });
 
@@ -86,6 +108,13 @@ export const desmarcar = mutation({
     const seg = await ctx.db.get(id);
     if (seg === null) {
       return { revertido: false, motivo: "no existe" as const };
+    }
+    // `hecho` antes que `fechaHecho`: un documento con hecho=false y la misma
+    // fechaHecho es imposible por el flujo, pero no por el esquema. Sin esta
+    // guarda se devolvería `revertido: true` sin revertir nada, y el contrato
+    // de retorno mentiría ante un estado corrupto.
+    if (!seg.hecho) {
+      return { revertido: false, motivo: "cambiado" as const };
     }
     if (seg.fechaHecho !== fechaHechoEsperada) {
       return { revertido: false, motivo: "cambiado" as const };

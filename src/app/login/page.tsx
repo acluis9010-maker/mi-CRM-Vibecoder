@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSignIn } from "@clerk/nextjs";
+import { ClerkLoaded, ClerkLoading, useSignIn } from "@clerk/nextjs";
 import { Eye, EyeOff, Mail } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ANILLO_FOCO } from "@/components/ui/foco";
 
 /**
@@ -23,6 +24,14 @@ import { ANILLO_FOCO } from "@/components/ui/foco";
  *
  * OJO: estos métodos NO lanzan, devuelven `{ error }`. Un try/catch no vería
  * nada y el login fallaría en silencio.
+ *
+ * Sobre el guard de "Clerk todavía no ha cargado": en esta API NO existe
+ * `isLoaded`, y `signIn` no es nullable —`SignInSignalValue.signIn` es
+ * `SignInFutureResource`, ver @clerk/shared/dist/types/state.d.ts L138; la
+ * variante nullable es de `SignInSignal`, otro tipo—. Así que no hay nada que
+ * comprobar a nivel de valor. La readiness se garantiza montando el formulario
+ * dentro de <ClerkLoaded>, que es el mecanismo del propio paquete: así no se
+ * puede pulsar "Entrar" antes de tiempo, por construcción.
  *
  * `finalize()` es lo que convierte el intento en sesión activa; sin él se
  * validarían las credenciales sin dejar al usuario dentro.
@@ -122,6 +131,15 @@ export default function LoginPage() {
             </div>
           )}
 
+          <ClerkLoading>
+            <div className="flex flex-col gap-4">
+              <Skeleton height={74} />
+              <Skeleton height={74} />
+              <Skeleton height={48} />
+            </div>
+          </ClerkLoading>
+
+          <ClerkLoaded>
           <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
             <Input
               label="Email"
@@ -170,6 +188,7 @@ export default function LoginPage() {
               Entrar
             </Button>
           </form>
+          </ClerkLoaded>
         </div>
       </div>
     </div>

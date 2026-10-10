@@ -122,7 +122,16 @@ export function HoyScreen() {
     for (const [k, v] of cache) if (v.ts < limite) cache.delete(k);
     cache.set(seg._id, { seg, ts: Date.now() });
 
-    void marcarHecho({ id: seg._id, fechaHecho });
+    void marcarHecho({ id: seg._id, fechaHecho }).then((r) => {
+      // Solo alcanzable si algo lo completó entre el render y el click: la UI
+      // retira la fila al instante, así que no se puede pulsar dos veces.
+      // Convex descarta la capa optimista al resolverse, así que la fila vuelve
+      // a su sitio sola; aquí basta con no mentir en el toast.
+      if (!r.marcado) {
+        cache.delete(seg._id);
+        showToast("Ese seguimiento ya estaba completado");
+      }
+    });
 
     showToast("Seguimiento completado", {
       onUndo: () => {
