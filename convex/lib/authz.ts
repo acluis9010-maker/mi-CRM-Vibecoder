@@ -1,109 +1,89 @@
 import { ConvexError } from "convex/values";
+import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
 /**
- * Autorización de las funciones de Convex. Esta es la ÚNICA barrera real de
- * datos de la aplicación.
+ * Autorización de las funciones de Convex. Sigue siendo la ÚNICA barrera real
+ * de datos: `NEXT_PUBLIC_CONVEX_URL` viaja en el bundle del navegador, así que
+ * cualquiera con la URL de la app puede llamar a estas funciones directamente
+ * sin pasar por la interfaz. La redirección del layout es solo UX.
  *
- * Por qué no basta con proteger las rutas de Next: `NEXT_PUBLIC_CONVEX_URL` se
- * inlinea en el bundle del navegador, así que cualquiera con la URL de la app
- * conoce la dirección del deployment y puede llamar a estas funciones
- * directamente, saltándose por completo la interfaz. La redirección del layout
- * de `(app)` es solo UX.
+ * El ROL se lee de la tabla `usuarios`, nunca de nada que mande el cliente.
  *
- * El ROL se lee de la tabla `usuarios`, nunca de los claims del token, para que
- * un usuario no pueda forjárselo manipulando su JWT.
+ * ─── LOGIN SIMPLE, PROVISIONAL ──────────────────────────────────────────────
+ * Antes esto resolvía la identidad con `ctx.auth.getUserIdentity()` (JWT de un
+ * proveedor externo). Ahora el login es propio y el token de sesión viaja como
+ * ARGUMENTO en cada llamada, de ahí `argsSesion` más abajo.
  *
- * Se usa `ConvexError` y no `Error` porque Convex NO propaga el mensaje de un
- * `Error` normal al cliente (lo sustituye por "Server Error"), y la UI necesita
- * poder explicar por qué se deniega el acceso.
+ * Lo que eso implica, explícito para quien lo revise:
+ *   - No hay segundo factor ni rotación de tokens. La sesión caduca a 30 días.
+ *   - El token va en localStorage, así que es accesible a JS de la propia
+ *     página (riesgo de XSS). Con cookie httpOnly no lo sería.
+ *   - Un proveedor de identidad daría además recuperación de contraseña,
+ *     verificación de email y protección contra fuerza bruta, que aquí no hay.
+ * Es la versión "simple" pedida para poder avanzar con el diseño; endurecerla
+ * es trabajo pendiente y debe volver a pasar por revisión.
  */
 
-export type CodigoDenegado = "sin-sesion" | "sin-alta" | "ya-vinculado";
+/** Añadir a los `args` de toda función pública. */
+export const argsSesion = { token: v.string() } as const;
+
+const DENEGADO = "Tu sesión no es válida o ha caducado. Vuelve a entrar.";
 
 export type ResultadoUsuario =
   | { estado: "ok"; usuario: Doc<"usuarios"> }
-  | { estado: CodigoDenegado };
+  | { estado: "sin-sesion" };
 
 /**
- * Resuelve el `usuarios` de quien llama, SIN lanzar y SIN escribir — por eso
- * vale igual en queries y en mutations. Es la única implementación de la regla;
- * `requireUsuario` y `usuarios.actual` se apoyan en ella.
+ * Resuelve el usuario a partir del token, SIN lanzar y SIN escribir — por eso
+ * vale igual en queries y en mutations.
  *
- * El enlace de identidad lo escribe `usuarios.reclamarActual`, que es una
- * mutation aparte: una query no puede escribir.
- *
- * Regla de resolución, estricta a propósito:
- *
- *   1. Por `authTokenIdentifier` → si existe, ése es el usuario. Fin.
- *   2. Si no, por email:
- *      a. no existe                     → "sin-alta"
- *      b. existe y su token está vacío  → OK (primer login, sin reclamar)
- *      c. existe y tiene OTRO token     → "ya-vinculado"
- *
- * El caso (c) es el que importa: sin él, una identidad de Clerk distinta con el
- * mismo email podría entrar a un registro ya reclamado por otra persona. Una vez
- * reclamado, el registro solo se resuelve por la vía 1.
+ * Comprueba, en este orden: que el token exista, que no haya caducado, y que el
+ * usuario al que apunta siga existiendo. Un token de una sesión caducada se
+ * trata igual que uno inventado.
  */
 export async function resolverUsuario(
-  ctx: QueryCtx | MutationCtx
+  ctx: QueryCtx | MutationCtx,
+  token: string
 ): Promise<ResultadoUsuario> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (identity === null) return { estado: "sin-sesion" };
+  if (token === "") return { estado: "sin-sesion" };
 
-  const porToken = await ctx.db
-    .query("usuarios")
-    .withIndex("by_auth_token", (q) =>
-      q.eq("authTokenIdentifier", identity.tokenIdentifier)
-    )
-    .unique();
-  if (porToken !== null) return { estado: "ok", usuario: porToken };
-
-  const email = identity.email?.trim().toLowerCase();
-  if (!email) return { estado: "sin-alta" };
-
-  const porEmail = await ctx.db
-    .query("usuarios")
-    .withIndex("by_email", (q) => q.eq("email", email))
+  const sesion = await ctx.db
+    .query("sesiones")
+    .withIndex("by_token", (q) => q.eq("token", token))
     .unique();
 
-  if (porEmail === null) return { estado: "sin-alta" };
-  if (porEmail.authTokenIdentifier !== undefined) {
-    return { estado: "ya-vinculado" };
-  }
-  return { estado: "ok", usuario: porEmail };
+  if (sesion === null) return { estado: "sin-sesion" };
+  if (sesion.expira < Date.now()) return { estado: "sin-sesion" };
+
+  const usuario = await ctx.db.get(sesion.usuarioId);
+  if (usuario === null) return { estado: "sin-sesion" };
+
+  return { estado: "ok", usuario };
 }
 
-/** Mensajes de cara al usuario. No distinguen si un email existe o no. */
-const MENSAJE: Record<CodigoDenegado, string> = {
-  "sin-sesion": "No hay sesión activa.",
-  "sin-alta":
-    "Tu cuenta no está dada de alta en este CRM. Pide a la propietaria que te añada.",
-  "ya-vinculado":
-    "Este usuario ya está vinculado a otra cuenta. Contacta con la propietaria.",
-};
-
-/** Como `resolverUsuario`, pero lanza si no hay acceso. Para el resto de funciones. */
+/** Como `resolverUsuario`, pero lanza. Para el resto de funciones. */
 export async function requireUsuario(
-  ctx: QueryCtx | MutationCtx
+  ctx: QueryCtx | MutationCtx,
+  token: string
 ): Promise<Doc<"usuarios">> {
-  const r = await resolverUsuario(ctx);
+  const r = await resolverUsuario(ctx, token);
   if (r.estado !== "ok") {
-    throw new ConvexError({ codigo: r.estado, mensaje: MENSAJE[r.estado] });
+    throw new ConvexError({ codigo: "sin-sesion", mensaje: DENEGADO });
   }
   return r.usuario;
 }
 
 /**
- * Exige rol `propietaria`. Es la parte de servidor de LUI-25: ocultar la pestaña
- * "Equipo" en el frontend no es control de acceso — cualquiera puede llamar a la
- * función directamente.
+ * Exige rol `propietaria`. Es la parte de servidor de LUI-25: ocultar la
+ * pestaña "Equipo" en el frontend no es control de acceso.
  */
 export async function requireDuena(
-  ctx: QueryCtx | MutationCtx
+  ctx: QueryCtx | MutationCtx,
+  token: string
 ): Promise<Doc<"usuarios">> {
-  const usuario = await requireUsuario(ctx);
+  const usuario = await requireUsuario(ctx, token);
   if (usuario.rol !== "propietaria") {
     throw new ConvexError({
       codigo: "solo-propietaria",

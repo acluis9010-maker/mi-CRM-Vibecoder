@@ -6,7 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { ANILLO_FOCO } from "@/components/ui/foco";
-import { useUsuario } from "@/lib/session";
+import { useSesion } from "@/lib/sesion";
 import { llevaBotonAtras, tituloDeRuta } from "./navegacion";
 
 /**
@@ -19,8 +19,7 @@ import { llevaBotonAtras, tituloDeRuta } from "./navegacion";
 export function TopHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const sesion = useUsuario();
-  const usuario = sesion.estado === "ok" ? sesion.usuario : null;
+  const { usuario } = useSesion();
 
   const atras = llevaBotonAtras(pathname);
 

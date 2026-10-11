@@ -1,66 +1,49 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useClerk } from "@clerk/nextjs";
-import { ShieldAlert } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { useEffect, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { ToastProvider } from "@/components/ui/Toast";
-import { useUsuario } from "@/lib/session";
+import { useSesion } from "@/lib/sesion";
 import { Sidebar } from "./Sidebar";
 import { TabBarNav } from "./TabBarNav";
 import { TopHeader } from "./TopHeader";
 
 /**
  * Shell autenticado (LUI-8): sidebar en escritorio, tab bar en móvil.
- *
- * Además resuelve el caso de una cuenta de Clerk válida que NO está dada de alta
- * en la tabla `usuarios`. Pasa de verdad: en Clerk se invita por email, pero el
- * acceso lo concede el registro en Convex. Sin esto el usuario vería una app
- * vacía y sin explicación.
+ * Además redirige a /login si no hay sesión válida.
  */
-function AccesoDenegado({ titulo, ayuda }: { titulo: string; ayuda: string }) {
-  const { signOut } = useClerk();
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-bg p-6">
-      <Card padding="p-0" className="w-full max-w-[420px]">
-        <EmptyState
-          icon={<ShieldAlert size={24} strokeWidth={1.5} />}
-          title={titulo}
-          help={ayuda}
-          action={
-            <Button
-              variant="secondary"
-              onClick={() => void signOut({ redirectUrl: "/login" })}
-            >
-              Cerrar sesión
-            </Button>
-          }
-        />
-      </Card>
-    </div>
-  );
-}
-
 export function AppShell({ children }: { children: ReactNode }) {
-  const sesion = useUsuario();
+  const router = useRouter();
+  const { usuario, cargando } = useSesion();
 
-  if (sesion.estado === "sin-alta") {
-    return (
-      <AccesoDenegado
-        titulo="Tu cuenta no está dada de alta"
-        ayuda="Pide a la propietaria que te añada al equipo para poder entrar."
-      />
-    );
-  }
+  const sinSesion = !cargando && usuario === null;
 
-  if (sesion.estado === "ya-vinculado") {
+  useEffect(() => {
+    if (sinSesion) router.replace("/login");
+  }, [sinSesion, router]);
+
+  // Mientras se resuelve la sesión (o se está redirigiendo) se pinta el
+  // esqueleto del shell, no la pantalla: así no parpadea contenido ajeno.
+  if (cargando || usuario === null) {
     return (
-      <AccesoDenegado
-        titulo="Este usuario ya está vinculado a otra cuenta"
-        ayuda="Contacta con la propietaria para revisar el acceso."
-      />
+      <div className="flex h-screen w-full overflow-hidden bg-bg">
+        <div className="hidden w-60 shrink-0 flex-col gap-3 border-r border-border bg-surface p-5 md:flex">
+          <Skeleton width={120} height={26} />
+          <div className="mt-4 flex flex-col gap-2">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} height={40} radius="rounded-lg" />
+            ))}
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="h-[60px] shrink-0 border-b border-border bg-surface" />
+          <div className="flex flex-1 flex-col gap-5 p-4 md:mx-auto md:w-full md:max-w-[860px] md:p-8">
+            <Skeleton width={180} height={26} />
+            <Skeleton height={60} radius="rounded-xl" />
+          </div>
+        </div>
+      </div>
     );
   }
 

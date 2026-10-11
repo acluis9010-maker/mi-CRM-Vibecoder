@@ -26,12 +26,18 @@ Para regenerarlos en local: `npx convex dev` (lo hace en caliente) o
 ## Autorización
 
 Toda función pública abre con `requireUsuario` o `requireDuena` de
-`lib/authz.ts`. **Es la única barrera real de datos**: `NEXT_PUBLIC_CONVEX_URL`
-viaja en el bundle del navegador, así que cualquiera con la URL de la app puede
-llamar a estas funciones directamente, sin pasar por la interfaz. La redirección
-del layout de `(app)` es solo UX.
+`lib/authz.ts`, **pasándoles el token de sesión** (que llega como argumento,
+ver `argsSesion`). **Es la única barrera real de datos**:
+`NEXT_PUBLIC_CONVEX_URL` viaja en el bundle del navegador, así que cualquiera
+con la URL de la app puede llamar a estas funciones directamente, sin pasar por
+la interfaz. La redirección del shell es solo UX.
 
-El **rol** se lee de la tabla `usuarios`, nunca de los claims del token.
+El **rol** se lee de la tabla `usuarios`, nunca de nada que mande el cliente.
+
+El login es propio y **provisional**: PBKDF2 para el hash, token de 256 bits en
+`sesiones`, caducidad de 30 días, sin segundo factor y sin recuperación de
+contraseña. Los límites están listados en la cabecera de `lib/authz.ts` y hay
+que volver a pasarlos por revisión al endurecerlos.
 
 ## Sembrar datos
 

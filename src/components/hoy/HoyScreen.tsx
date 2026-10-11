@@ -18,6 +18,7 @@ import { useToast } from "@/components/ui/Toast";
 import { ANILLO_FOCO } from "@/components/ui/foco";
 import { badgeDeEstado, etiquetaEstado } from "@/lib/estados";
 import { diasDeRetraso, etiquetaFechaLarga, etiquetaVence, hoyISO } from "@/lib/fechas";
+import { useSesion } from "@/lib/sesion";
 
 /**
  * P2/Hoy — pantalla de inicio (LUI-21) + flujo de completar (LUI-16).
@@ -46,6 +47,7 @@ const SIN_CAMBIOS = () => () => {};
 
 export function HoyScreen() {
   const { showToast } = useToast();
+  const { token } = useSesion();
 
   /**
    * La fecha depende del reloj del navegador, así que calcularla en el servidor
@@ -60,7 +62,14 @@ export function HoyScreen() {
 
   const [overlay, setOverlay] = useState<ClaveAccion | null>(null);
 
-  const args = hoy === null ? "skip" : { hoyISO: hoy };
+  /**
+   * Args de la query. Se mantienen en una sola expresión porque los handlers
+   * optimistas de abajo tienen que usar EXACTAMENTE los mismos —token incluido—
+   * o `getQuery`/`setQuery` apuntarían a otra entrada de la caché y el
+   * Deshacer no surtiría efecto.
+   */
+  const listos = hoy !== null && token !== null && token !== "";
+  const args = listos ? { token: token as string, hoyISO: hoy as string } : "skip";
   const pendientes = useQuery(api.seguimientos.listarPendientes, args);
 
   /**
@@ -79,14 +88,15 @@ export function HoyScreen() {
   const marcarHecho = useMutation(
     api.seguimientos.marcarHecho
   ).withOptimisticUpdate((localStore, { id }) => {
-    if (hoy === null) return;
-    const actuales = localStore.getQuery(api.seguimientos.listarPendientes, {
-      hoyISO: hoy,
-    });
+    if (args === "skip") return;
+    const actuales = localStore.getQuery(
+      api.seguimientos.listarPendientes,
+      args
+    );
     if (actuales === undefined) return;
     localStore.setQuery(
       api.seguimientos.listarPendientes,
-      { hoyISO: hoy },
+      args,
       actuales.filter((s) => s._id !== id)
     );
   });
@@ -94,27 +104,25 @@ export function HoyScreen() {
   const desmarcar = useMutation(
     api.seguimientos.desmarcar
   ).withOptimisticUpdate((localStore, { id }) => {
-    if (hoy === null) return;
+    if (args === "skip") return;
     const guardado = recienCompletados.get(id);
     if (guardado === undefined) return; // p. ej. tras un remontaje: se verá al confirmar
-    const actuales = localStore.getQuery(api.seguimientos.listarPendientes, {
-      hoyISO: hoy,
-    });
+    const actuales = localStore.getQuery(
+      api.seguimientos.listarPendientes,
+      args
+    );
     if (actuales === undefined) return;
     // Reinsertado en su posición por `vence`, para que vuelva a su sección sin salto.
     const siguiente = [...actuales, guardado.seg].sort((a, b) =>
       a.vence < b.vence ? -1 : a.vence > b.vence ? 1 : 0
     );
-    localStore.setQuery(
-      api.seguimientos.listarPendientes,
-      { hoyISO: hoy },
-      siguiente
-    );
+    localStore.setQuery(api.seguimientos.listarPendientes, args, siguiente);
   });
 
   function completar(seg: Seguimiento) {
-    if (hoy === null) return;
-    const fechaHecho = hoy;
+    if (args === "skip") return;
+    const fechaHecho = args.hoyISO;
+    const tk = args.token;
 
     const cache = recienCompletados;
     // Poda de entradas viejas: la ventana de Deshacer es de ~3.8s.
@@ -122,7 +130,7 @@ export function HoyScreen() {
     for (const [k, v] of cache) if (v.ts < limite) cache.delete(k);
     cache.set(seg._id, { seg, ts: Date.now() });
 
-    void marcarHecho({ id: seg._id, fechaHecho }).then((r) => {
+    void marcarHecho({ token: tk, id: seg._id, fechaHecho }).then((r) => {
       // Solo alcanzable si algo lo completó entre el render y el click: la UI
       // retira la fila al instante, así que no se puede pulsar dos veces.
       // Convex descarta la capa optimista al resolverse, así que la fila vuelve
@@ -136,6 +144,7 @@ export function HoyScreen() {
     showToast("Seguimiento completado", {
       onUndo: () => {
         void desmarcar({
+          token: tk,
           id: seg._id,
           fechaHechoEsperada: fechaHecho,
         }).then((r) => {

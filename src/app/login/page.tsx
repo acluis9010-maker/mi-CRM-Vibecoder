@@ -2,58 +2,36 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClerkLoaded, ClerkLoading, useSignIn } from "@clerk/nextjs";
+import { ConvexError } from "convex/values";
 import { Eye, EyeOff, Mail } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Skeleton } from "@/components/ui/Skeleton";
 import { ANILLO_FOCO } from "@/components/ui/foco";
+import { useSesion } from "@/lib/sesion";
 
 /**
- * P1 — Inicio de sesión (LUI-7).
+ * P1 — Inicio de sesión (LUI-7), versión simple de email + contraseña.
  * Diseño: CRM Shell.dc.html L32-65. Validación: L1306-1320.
  *
- * Se usa el flujo "headless" de Clerk y no el componente <SignIn /> prefabricado
- * porque LUI-7 pide reproducir este diseño exacto.
- *
- * API de @clerk/nextjs 7.x: `useSignIn()` devuelve un `SignInSignalValue`
- * —{ errors, fetchStatus, signIn }— donde `signIn` es un `SignInFutureResource`,
- * documentado como "new APIs designed specifically for custom flows". De ahí
- * `signIn.password()` + `signIn.finalize()`, y no el `create()`/`setActive()`
- * del recurso antiguo.
- *
- * OJO: estos métodos NO lanzan, devuelven `{ error }`. Un try/catch no vería
- * nada y el login fallaría en silencio.
- *
- * Sobre el guard de "Clerk todavía no ha cargado": en esta API NO existe
- * `isLoaded`, y `signIn` no es nullable —`SignInSignalValue.signIn` es
- * `SignInFutureResource`, ver @clerk/shared/dist/types/state.d.ts L138; la
- * variante nullable es de `SignInSignal`, otro tipo—. Así que no hay nada que
- * comprobar a nivel de valor. La readiness se garantiza montando el formulario
- * dentro de <ClerkLoaded>, que es el mecanismo del propio paquete: así no se
- * puede pulsar "Entrar" antes de tiempo, por construcción.
- *
- * `finalize()` es lo que convierte el intento en sesión activa; sin él se
- * validarían las credenciales sin dejar al usuario dentro.
+ * Sin segundo factor: así lo pidió el usuario para poder avanzar con el diseño,
+ * y coincide con lo que especifica el handoff ("Sin MFA").
  *
  * No hay enlace "¿Olvidaste tu contraseña?": LUI-7 permite retirarlo si no hay
- * flujo real, y el flujo es LUI-63, fuera de esta tanda. Mientras tanto se
- * resetea desde el dashboard de Clerk.
+ * flujo real, y el flujo es LUI-63. Hoy la cambia la propietaria desde el
+ * dashboard de Convex.
  */
 const FORMATO_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginPage() {
-  const { signIn, fetchStatus } = useSignIn();
   const router = useRouter();
+  const { iniciar } = useSesion();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [verPassword, setVerPassword] = useState(false);
   const [intentado, setIntentado] = useState(false);
+  const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // `fetchStatus` lo expone el propio hook; es más fiable que un flag propio.
-  const cargando = fetchStatus === "fetching";
 
   // Los errores de campo solo se muestran tras el primer envío (diseño L1306).
   const errorEmail =
@@ -71,33 +49,20 @@ export default function LoginPage() {
     if (!FORMATO_EMAIL.test(email.trim()) || password.trim() === "") return;
     if (cargando) return;
 
-    const { error: errorCredenciales } = await signIn.password({
-      identifier: email.trim(),
-      password,
-    });
-
-    if (errorCredenciales !== null) {
-      // Mensaje genérico a propósito: LUI-7 exige no revelar si el email existe.
-      // El error de Clerk sí distingue ambos casos, así que no se propaga.
-      setError("Email o contraseña incorrectos.");
-      return;
+    setCargando(true);
+    try {
+      await iniciar(email, password);
+      router.push("/hoy");
+    } catch (e) {
+      // El servidor ya devuelve un mensaje genérico a propósito: no distingue
+      // "email no existe" de "contraseña incorrecta" (LUI-7).
+      const mensaje =
+        e instanceof ConvexError && typeof e.data === "object" && e.data !== null
+          ? ((e.data as { mensaje?: string }).mensaje ?? null)
+          : null;
+      setError(mensaje ?? "No se pudo iniciar sesión. Inténtalo de nuevo.");
+      setCargando(false);
     }
-
-    if (signIn.status !== "complete") {
-      // Sin MFA configurada no debería haber estados intermedios
-      // (needs_second_factor, needs_client_trust...). Si aparece uno, es mejor
-      // decirlo que dejar la pantalla muda.
-      setError("No se pudo completar el inicio de sesión. Inténtalo de nuevo.");
-      return;
-    }
-
-    const { error: errorSesion } = await signIn.finalize();
-    if (errorSesion !== null) {
-      setError("No se pudo iniciar la sesión. Inténtalo de nuevo.");
-      return;
-    }
-
-    router.push("/hoy");
   }
 
   return (
@@ -131,15 +96,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          <ClerkLoading>
-            <div className="flex flex-col gap-4">
-              <Skeleton height={74} />
-              <Skeleton height={74} />
-              <Skeleton height={48} />
-            </div>
-          </ClerkLoading>
-
-          <ClerkLoaded>
           <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
             <Input
               label="Email"
@@ -188,7 +144,6 @@ export default function LoginPage() {
               Entrar
             </Button>
           </form>
-          </ClerkLoaded>
         </div>
       </div>
     </div>

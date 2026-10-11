@@ -15,16 +15,23 @@ export default defineSchema({
     nombre: v.string(),
     email: v.string(),
     rol: v.union(v.literal("propietaria"), v.literal("comercial")),
-    // Autenticación (LUI-7): la resuelve Clerk — aquí no se guarda contraseña.
-    // Enlace con la identidad: `tokenIdentifier` de Convex (claims sub + iss),
-    // NO `subject`. Los tipos de Convex documentan que tokenIdentifier es
-    // "globally unique... even from a different identity provider", mientras
-    // que subject "not necessarily unique across different providers".
-    // Se reclama en el primer login (ver usuarios.reclamarActual).
-    authTokenIdentifier: v.optional(v.string()),
+    // Autenticación propia (LUI-7, versión simple). Formato del campo:
+    // `pbkdf2$<iteraciones>$<sal>$<hash>` — ver convex/lib/password.ts.
+    // Nunca sale de las funciones de Convex: no se devuelve al cliente.
+    passwordHash: v.optional(v.string()),
+  }).index("by_email", ["email"]),
+
+  /**
+   * Sesiones del login propio. El token vive en el navegador y viaja como
+   * argumento en cada llamada; aquí se valida contra esta tabla.
+   */
+  sesiones: defineTable({
+    usuarioId: v.id("usuarios"),
+    token: v.string(),
+    expira: v.number(), // epoch ms
   })
-    .index("by_email", ["email"])
-    .index("by_auth_token", ["authTokenIdentifier"]),
+    .index("by_token", ["token"])
+    .index("by_usuario", ["usuarioId"]),
 
   clientes: defineTable({
     nombre: v.string(),

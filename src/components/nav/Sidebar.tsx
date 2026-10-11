@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useClerk } from "@clerk/nextjs";
+import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ANILLO_FOCO } from "@/components/ui/foco";
-import { ROL_CORTO, useUsuario } from "@/lib/session";
+import { ROL_CORTO, useSesion } from "@/lib/sesion";
 import { destinosVisibles, tabActiva } from "./navegacion";
 
 /**
@@ -21,10 +20,9 @@ import { destinosVisibles, tabActiva } from "./navegacion";
  */
 export function Sidebar() {
   const pathname = usePathname();
-  const sesion = useUsuario();
-  const { signOut } = useClerk();
+  const router = useRouter();
+  const { usuario, cerrar } = useSesion();
 
-  const usuario = sesion.estado === "ok" ? sesion.usuario : null;
   const destinos = destinosVisibles(usuario?.rol === "propietaria");
   const activa = tabActiva(pathname);
 
@@ -90,7 +88,7 @@ export function Sidebar() {
         <IconButton
           aria-label="Cerrar sesión"
           title="Cerrar sesión"
-          onClick={() => void signOut({ redirectUrl: "/login" })}
+          onClick={() => void cerrar().then(() => router.replace("/login"))}
           size="compact"
           className="size-[34px] shrink-0"
         >

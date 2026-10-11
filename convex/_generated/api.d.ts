@@ -8,7 +8,9 @@
  * @module
  */
 
+import type * as autenticacion from "../autenticacion.js";
 import type * as lib_authz from "../lib/authz.js";
+import type * as lib_password from "../lib/password.js";
 import type * as seed from "../seed.js";
 import type * as seguimientos from "../seguimientos.js";
 import type * as usuarios from "../usuarios.js";
@@ -20,7 +22,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  autenticacion: typeof autenticacion;
   "lib/authz": typeof lib_authz;
+  "lib/password": typeof lib_password;
   seed: typeof seed;
   seguimientos: typeof seguimientos;
   usuarios: typeof usuarios;

@@ -9,8 +9,9 @@ y el backlog en Linear (proyectos `CRM MVP` y `CRM-RESTO PRD`).
 
 - **Next.js** (App Router, TypeScript) + **Tailwind CSS v4**
 - **Convex** como base de datos y backend (funciones + esquema en `convex/`)
-- **Clerk** para autenticación (LUI-7) — el rol vive en la tabla `usuarios` de
-  Convex, no en los claims del token
+- **Autenticación propia** (LUI-7, versión simple): email + contraseña, con el
+  hash PBKDF2 en la tabla `usuarios` y un token de sesión. Sin proveedor
+  externo. Ver la nota de alcance en `convex/lib/authz.ts`
 - Deploy: **GitHub** → **Railway**
 
 ## Estado actual

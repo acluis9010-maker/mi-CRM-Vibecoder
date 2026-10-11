@@ -1,7 +1,7 @@
 import { ConvexError } from "convex/values";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireUsuario } from "./lib/authz";
+import { argsSesion, requireUsuario } from "./lib/authz";
 
 /**
  * Seguimientos: la pantalla "Hoy" (LUI-21) y el flujo de completar (LUI-16).
@@ -21,9 +21,9 @@ import { requireUsuario } from "./lib/authz";
  * "Atrasados" (vence < hoy) y "Para hoy" (vence === hoy).
  */
 export const listarPendientes = query({
-  args: { hoyISO: v.string() },
-  handler: async (ctx, { hoyISO }) => {
-    await requireUsuario(ctx);
+  args: { ...argsSesion, hoyISO: v.string() },
+  handler: async (ctx, { token, hoyISO }) => {
+    await requireUsuario(ctx, token);
 
     const pendientes = await ctx.db
       .query("seguimientos")
@@ -69,9 +69,9 @@ export const listarPendientes = query({
  * gestionan la misma lista, por decisión de producto.
  */
 export const marcarHecho = mutation({
-  args: { id: v.id("seguimientos"), fechaHecho: v.string() },
-  handler: async (ctx, { id, fechaHecho }) => {
-    await requireUsuario(ctx);
+  args: { ...argsSesion, id: v.id("seguimientos"), fechaHecho: v.string() },
+  handler: async (ctx, { token, id, fechaHecho }) => {
+    await requireUsuario(ctx, token);
 
     const seg = await ctx.db.get(id);
     if (seg === null) {
@@ -101,9 +101,9 @@ export const marcarHecho = mutation({
  * "Responsable: <nombre>"). Distingue dos completados del mismo día.
  */
 export const desmarcar = mutation({
-  args: { id: v.id("seguimientos"), fechaHechoEsperada: v.string() },
-  handler: async (ctx, { id, fechaHechoEsperada }) => {
-    await requireUsuario(ctx);
+  args: { ...argsSesion, id: v.id("seguimientos"), fechaHechoEsperada: v.string() },
+  handler: async (ctx, { token, id, fechaHechoEsperada }) => {
+    await requireUsuario(ctx, token);
 
     const seg = await ctx.db.get(id);
     if (seg === null) {

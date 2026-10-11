@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { TabBar } from "@/components/ui/TabBar";
-import { useUsuario } from "@/lib/session";
+import { useSesion } from "@/lib/sesion";
 import { destinosVisibles, tabActiva } from "./navegacion";
 
 /**
@@ -11,8 +11,8 @@ import { destinosVisibles, tabActiva } from "./navegacion";
  */
 export function TabBarNav() {
   const pathname = usePathname();
-  const sesion = useUsuario();
-  const esDuena = sesion.estado === "ok" && sesion.usuario.rol === "propietaria";
+  const { usuario } = useSesion();
+  const esDuena = usuario?.rol === "propietaria";
 
   const items = destinosVisibles(esDuena).map(({ href, label, Icon }) => ({
     href,

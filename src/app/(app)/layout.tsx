@@ -1,26 +1,17 @@
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
 import { AppShell } from "@/components/nav/AppShell";
 
 /**
- * Aquí vive la protección de rutas de LUI-7 ("cualquier ruta sin sesión activa
- * redirige a /login"), y cubre todo el grupo `(app)` de una vez.
+ * Shell autenticado. La comprobación de sesión vive en `AppShell` (cliente),
+ * porque el token está en localStorage y el servidor no puede verlo.
  *
- * NO está en proxy.ts a propósito: `clerkMiddleware()` sin argumentos no
- * protege nada y `createRouteMatcher()` está deprecado. La guía de Clerk dice
- * comprobar "as close to the resource as possible".
- *
- * Y esto sigue siendo UX, no seguridad: la barrera real son las funciones de
- * Convex (convex/lib/authz.ts), porque la URL del deployment viaja en el bundle
- * del navegador y cualquiera puede llamarlas sin pasar por esta interfaz.
+ * Eso la hace UX, no seguridad — igual que antes: la barrera real son
+ * `requireUsuario`/`requireDuena` en las funciones de Convex, que es lo único
+ * que no se puede saltar llamando a la API directamente.
  */
-export default async function AppLayout({
+export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { userId } = await auth();
-  if (userId === null) redirect("/login");
-
   return <AppShell>{children}</AppShell>;
 }

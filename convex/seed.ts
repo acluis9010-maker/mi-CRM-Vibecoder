@@ -1,4 +1,6 @@
+import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
+import { hashearPassword } from "./lib/password";
 
 /**
  * Siembra datos de desarrollo/arranque. Determinista e idempotente.
@@ -153,25 +155,37 @@ export const poblar = internalMutation({
  * Idempotente: no toca a quien ya exista, y no pisa `authTokenIdentifier`.
  */
 export const poblarUsuarios = internalMutation({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    passwordMarta: v.string(),
+    passwordCarlos: v.string(),
+  },
+  handler: async (ctx, { passwordMarta, passwordCarlos }) => {
     const equipo = [
-      { nombre: "Marta López", email: "marta@acme.es", rol: "propietaria" as const },
-      { nombre: "Carlos Ruiz", email: "carlos@betadigital.com", rol: "comercial" as const },
+      { nombre: "Marta López", email: "marta@acme.es", rol: "propietaria" as const, password: passwordMarta },
+      { nombre: "Carlos Ruiz", email: "carlos@betadigital.com", rol: "comercial" as const, password: passwordCarlos },
     ];
 
     const creados: string[] = [];
-    for (const u of equipo) {
+    const actualizados: string[] = [];
+
+    for (const { password, ...datos } of equipo) {
+      const passwordHash = await hashearPassword(password);
       const existe = await ctx.db
         .query("usuarios")
-        .withIndex("by_email", (q) => q.eq("email", u.email))
+        .withIndex("by_email", (q) => q.eq("email", datos.email))
         .unique();
+
       if (existe === null) {
-        await ctx.db.insert("usuarios", u);
-        creados.push(u.email);
+        await ctx.db.insert("usuarios", { ...datos, passwordHash });
+        creados.push(datos.email);
+      } else {
+        // Solo se asigna la contraseña; no se toca nombre ni rol, que pueden
+        // haberse editado desde la pantalla de Equipo.
+        await ctx.db.patch(existe._id, { passwordHash });
+        actualizados.push(datos.email);
       }
     }
 
-    return { creados, yaExistian: equipo.length - creados.length };
+    return { creados, actualizados };
   },
 });
