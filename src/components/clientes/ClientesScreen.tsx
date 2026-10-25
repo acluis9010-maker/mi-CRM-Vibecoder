@@ -51,6 +51,9 @@ export function ClientesScreen() {
   const clientes = useQuery(api.clientes.listar, args);
 
   const [consulta, setConsulta] = useState("");
+  // Mientras el alta esta escribiendo en el servidor, el overlay no se puede
+  // cerrar: Esc, scrim y X no pasan por los botones del formulario.
+  const [guardandoAlta, setGuardandoAlta] = useState(false);
   const q = consulta.trim().toLowerCase();
 
   const filtrados = useMemo(() => {
@@ -169,8 +172,17 @@ export function ClientesScreen() {
 
       {/* Solo se monta el abierto: Overlay usa un id de título fijo. */}
       {altaAbierta && (
-        <Overlay open onClose={cerrarAlta} title="Nuevo cliente">
-          <FormularioCliente cliente={null} onCerrar={cerrarAlta} />
+        <Overlay
+          open
+          onClose={cerrarAlta}
+          title="Nuevo cliente"
+          puedeCerrar={!guardandoAlta}
+        >
+          <FormularioCliente
+            cliente={null}
+            onCerrar={cerrarAlta}
+            onGuardandoCambia={setGuardandoAlta}
+          />
         </Overlay>
       )}
     </div>

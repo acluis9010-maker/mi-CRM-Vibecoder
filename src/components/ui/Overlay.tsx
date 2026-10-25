@@ -22,11 +22,21 @@ export function Overlay({
   onClose,
   title,
   children,
+  puedeCerrar = true,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /**
+   * `false` bloquea TODAS las vías de cierre: Esc, clic en el scrim y botón X.
+   *
+   * Hace falta porque esas tres no pasan por los botones del contenido: un
+   * formulario puede deshabilitar su propio "Cancelar" mientras guarda y, sin
+   * esto, el usuario seguiría pudiendo cerrar con Esc dejando la escritura en
+   * vuelo. Desmontar el componente no cancela una mutation ya enviada.
+   */
+  puedeCerrar?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
 
@@ -42,15 +52,19 @@ export function Overlay({
       ref={ref}
       aria-labelledby="overlay-titulo"
       // `cancel` cubre la tecla Esc; `close` cualquier otra vía de cierre.
+      // El preventDefault va siempre: sin él el navegador cerraría el dialog
+      // por su cuenta y el estado de React se quedaría desincronizado.
       onCancel={(e) => {
         e.preventDefault();
-        onClose();
+        if (puedeCerrar) onClose();
       }}
-      onClose={onClose}
+      onClose={() => {
+        if (puedeCerrar) onClose();
+      }}
       // Click en el scrim: el <dialog> ocupa toda la ventana, así que un click
       // cuyo target sea el propio dialog (y no su contenido) es el scrim.
       onClick={(e) => {
-        if (e.target === ref.current) onClose();
+        if (puedeCerrar && e.target === ref.current) onClose();
       }}
       className="m-0 max-h-none max-w-none border-none bg-transparent p-0 backdrop:bg-[rgba(16,24,32,0.45)] open:flex h-full w-full items-end justify-center md:items-center md:p-6"
     >
@@ -74,6 +88,7 @@ export function Overlay({
               aria-label="Cerrar"
               size="compact"
               onClick={onClose}
+              disabled={!puedeCerrar}
               className="-mr-2"
             >
               <X size={20} strokeWidth={1.5} />

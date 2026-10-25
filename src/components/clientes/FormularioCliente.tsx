@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -121,10 +121,16 @@ const NOMBRES_CAMPOS: ReadonlyArray<{ clave: keyof Campos; etiqueta: string }> =
 export function FormularioCliente({
   cliente,
   onCerrar,
+  onGuardandoCambia,
 }: {
   /** `null` = alta. Un objeto = edición de ese cliente ya cargado. */
   cliente: ClienteEditable | null;
   onCerrar: () => void;
+  /**
+   * Avisa al padre de que hay una escritura en vuelo, para que bloquee las vías
+   * de cierre del overlay (Esc, scrim y X), que no pasan por este formulario.
+   */
+  onGuardandoCambia?: (guardando: boolean) => void;
 }) {
   const router = useRouter();
   const { token } = useSesion();
@@ -149,6 +155,35 @@ export function FormularioCliente({
     campos: Campos;
     revision: number;
   } | null>(null);
+
+  /**
+   * Mientras guarda, el formulario queda INERTE: campos, chips, estado y los dos
+   * botones deshabilitados, y el padre bloquea Esc, scrim y X. Así no hay forma
+   * de escribir cambios que el cierre perdería, ni de abandonar un alta que el
+   * servidor va a completar de todos modos.
+   */
+  function marcarGuardando(valor: boolean): void {
+    setGuardando(valor);
+    onGuardandoCambia?.(valor);
+  }
+
+  /**
+   * Aun bloqueando el overlay, el usuario puede irse por la navegación del
+   * shell (sidebar o tab bar), y eso desmonta este componente sin cancelar la
+   * mutation. Esta guarda evita que la respuesta tardía navegue o toque estado
+   * de un formulario que ya no existe.
+   */
+  const vivo = useRef(true);
+  useEffect(() => {
+    // Se reafirma en el cuerpo, no solo en la limpieza: en modo estricto React
+    // ejecuta efecto -> limpieza -> efecto, así que sin esta línea el segundo
+    // montaje arrancaría con `vivo` ya en false y se descartaría la respuesta
+    // de un guardado perfectamente válido.
+    vivo.current = true;
+    return () => {
+      vivo.current = false;
+    };
+  }, []);
 
   const errores = useMemo(
     () =>
@@ -226,7 +261,7 @@ export function FormularioCliente({
       return;
     }
 
-    setGuardando(true);
+    marcarGuardando(true);
     try {
       if (cliente === null) {
         const r = await crear({
@@ -234,6 +269,10 @@ export function FormularioCliente({
           ...aArgumentos(campos),
           hoyISO: hoyISO(),
         });
+        // Si el usuario se fue del formulario mientras se creaba, el cliente ya
+        // está guardado, pero arrastrarle a una ficha que no pidió sería peor
+        // que no decir nada: se deja donde esté.
+        if (!vivo.current) return;
         showToast("Cliente añadido");
         // Navegar desmonta este overlay, así que no hace falta cerrarlo.
         router.replace(`/clientes/${r.clienteId}`, { scroll: false });
@@ -248,6 +287,8 @@ export function FormularioCliente({
         revisionEsperada: revisionBase,
       });
 
+      if (!vivo.current) return;
+
       // Una promesa resuelta no es un éxito: hay que mirar el resultado.
       if (!r.actualizado) {
         if (r.motivo === "conflicto") {
@@ -260,9 +301,10 @@ export function FormularioCliente({
 
       onCerrar();
     } catch (err) {
+      if (!vivo.current) return;
       describirError(err);
     } finally {
-      setGuardando(false);
+      if (vivo.current) marcarGuardando(false);
     }
   }
 
@@ -281,16 +323,25 @@ export function FormularioCliente({
           )}
           <span>
             Lo que has escrito sigue aquí. Para guardarlo tendrás que revisar la
-            versión actual primero.
+            versión actual primero, y eso sustituirá lo que llevas escrito.
           </span>
+          {/* `whitespace-normal` anula el nowrap de Button: en movil la
+              etiqueta no cabe en una linea. */}
+          {/*
+            También se deshabilita al guardar: el aviso de conflicto sigue en
+            pantalla durante un reintento, y pulsarlo con una escritura en vuelo
+            cambiaría el borrador y la revisión base bajo los pies de esa
+            escritura.
+          */}
           <Button
             type="button"
             variant="secondary"
             size="compact"
             onClick={cargarVersionActual}
-            className="self-start"
+            disabled={guardando}
+            className="h-auto self-start py-2 text-left whitespace-normal"
           >
-            Cargar la versión actual (sustituye lo escrito)
+            Cargar la versión actual
           </Button>
         </div>
       )}
@@ -312,6 +363,7 @@ export function FormularioCliente({
         value={campos.nombre}
         error={errorDe("nombre")}
         onChange={(e) => escribir("nombre", e.target.value)}
+        disabled={guardando}
       />
       <Input
         label="Empresa"
@@ -321,6 +373,7 @@ export function FormularioCliente({
         value={campos.empresa}
         error={errorDe("empresa")}
         onChange={(e) => escribir("empresa", e.target.value)}
+        disabled={guardando}
       />
       <Input
         label="Teléfono"
@@ -332,6 +385,7 @@ export function FormularioCliente({
         value={campos.telefono}
         error={errorDe("telefono")}
         onChange={(e) => escribir("telefono", e.target.value)}
+        disabled={guardando}
       />
       <Input
         label="Email"
@@ -344,6 +398,7 @@ export function FormularioCliente({
         value={campos.email}
         error={errorDe("email")}
         onChange={(e) => escribir("email", e.target.value)}
+        disabled={guardando}
       />
 
       {/*
@@ -372,6 +427,7 @@ export function FormularioCliente({
                   campos.canalOrigen === valor ? null : valor
                 )
               }
+              disabled={guardando}
             >
               {etiqueta}
             </Chip>
@@ -386,9 +442,16 @@ export function FormularioCliente({
         value={campos.nota}
         error={errorDe("nota")}
         onChange={(e) => escribir("nota", e.target.value)}
+        disabled={guardando}
       />
 
-      {editando && <SelectorEstado valor={campos.estado} onCambiar={(v) => escribir("estado", v)} />}
+      {editando && (
+        <SelectorEstado
+          valor={campos.estado}
+          onCambiar={(v) => escribir("estado", v)}
+          deshabilitado={guardando}
+        />
+      )}
 
       <div className="flex gap-2.5 pt-1">
         {/*
@@ -425,9 +488,11 @@ export function FormularioCliente({
 function SelectorEstado({
   valor,
   onCambiar,
+  deshabilitado,
 }: {
   valor: EstadoCliente;
   onCambiar: (nuevo: EstadoCliente) => void;
+  deshabilitado: boolean;
 }) {
   return (
     <fieldset className="m-0 flex flex-col gap-2 border-none p-0">
@@ -436,13 +501,19 @@ function SelectorEstado({
       </legend>
       <div className="flex flex-wrap gap-2">
         {ESTADOS.map(({ valor: opcion, etiqueta }) => (
-          <label key={opcion} className="cursor-pointer">
+          <label
+            key={opcion}
+            className={
+              deshabilitado ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+            }
+          >
             <input
               type="radio"
               name="estado"
               value={opcion}
               checked={valor === opcion}
               onChange={() => onCambiar(opcion)}
+              disabled={deshabilitado}
               className="peer sr-only"
             />
             <span className="inline-flex rounded-full border-2 border-transparent p-[3px] peer-checked:border-primary peer-checked:shadow-[0_0_0_1px_var(--color-primary)] peer-focus-visible:shadow-[var(--focus-ring)]">

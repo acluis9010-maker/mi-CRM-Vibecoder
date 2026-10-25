@@ -18,21 +18,27 @@ import { ANILLO_FOCO } from "./foco";
 export function Chip({
   children,
   activo,
+  disabled,
   className = "",
   ...rest
 }: {
   children: ReactNode;
   activo: boolean;
 } & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "type" | "aria-pressed">) {
+  const tono = activo
+    ? "border-primary bg-primary-subtle text-primary"
+    : "border-border-strong bg-surface text-text-muted";
+
   return (
     <button
       {...rest}
       type="button"
+      disabled={disabled}
       aria-pressed={activo}
-      className={`cursor-pointer rounded-md border px-3.5 py-[9px] text-sm font-medium transition-[background-color,border-color,color] duration-[var(--duration-fast)] ease-[var(--ease-standard)] ${
-        activo
-          ? "border-primary bg-primary-subtle text-primary"
-          : "border-border-strong bg-surface text-text-muted hover:bg-surface-2"
+      className={`rounded-md border px-3.5 py-[9px] text-sm font-medium transition-[background-color,border-color,color] duration-[var(--duration-fast)] ease-[var(--ease-standard)] ${
+        disabled
+          ? `cursor-not-allowed opacity-60 ${tono}`
+          : `cursor-pointer ${tono} ${activo ? "" : "hover:bg-surface-2"}`
       } ${ANILLO_FOCO} ${className}`}
     >
       {children}

@@ -56,6 +56,7 @@ export function FichaCliente({ id }: { id: string }) {
   const parametros = useSearchParams();
   const { token } = useSesion();
   const [accion, setAccion] = useState<string | null>(null);
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
   const args = token !== null && token !== "" ? { token, id } : "skip";
   const cliente = useQuery(api.clientes.obtener, args);
@@ -93,12 +94,14 @@ export function FichaCliente({ id }: { id: string }) {
           <div className="flex items-start gap-3.5">
             <Avatar name={cliente.nombre} size={56} />
             <div className="flex min-w-0 flex-1 flex-col gap-[7px]">
-              <span className="text-[19px] font-semibold tracking-[-0.011em] text-text">
+              <span className="text-[19px] font-semibold tracking-[-0.011em] break-words text-text">
                 {cliente.nombre}
               </span>
               {/* Sin empresa no se pinta la línea, en vez de un guion de relleno. */}
               {cliente.empresa !== undefined && (
-                <span className="text-sm text-text-muted">{cliente.empresa}</span>
+                <span className="text-sm break-words text-text-muted">
+                  {cliente.empresa}
+                </span>
               )}
             </div>
             <div className="shrink-0">
@@ -182,8 +185,17 @@ export function FichaCliente({ id }: { id: string }) {
         que capture juntos el borrador, la instantánea base y la revisión.
       */}
       {edicionAbierta && (
-        <Overlay open onClose={cerrarEdicion} title="Editar cliente">
-          <FormularioCliente cliente={cliente} onCerrar={cerrarEdicion} />
+        <Overlay
+          open
+          onClose={cerrarEdicion}
+          title="Editar cliente"
+          puedeCerrar={!guardandoEdicion}
+        >
+          <FormularioCliente
+            cliente={cliente}
+            onCerrar={cerrarEdicion}
+            onGuardandoCambia={setGuardandoEdicion}
+          />
         </Overlay>
       )}
 
