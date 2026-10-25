@@ -24,7 +24,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ANILLO_FOCO } from "@/components/ui/foco";
 import { badgeDeEstado, etiquetaCanal, etiquetaEstado } from "@/lib/estados";
 import { useSesion } from "@/lib/sesion";
-import { FormularioCliente } from "./FormularioCliente";
+import { FormularioCliente, type ClienteEditable } from "./FormularioCliente";
 
 /**
  * P4 — Ficha del cliente (LUI-11).
@@ -56,7 +56,6 @@ export function FichaCliente({ id }: { id: string }) {
   const parametros = useSearchParams();
   const { token } = useSesion();
   const [accion, setAccion] = useState<string | null>(null);
-  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
 
   const args = token !== null && token !== "" ? { token, id } : "skip";
   const cliente = useQuery(api.clientes.obtener, args);
@@ -185,18 +184,7 @@ export function FichaCliente({ id }: { id: string }) {
         que capture juntos el borrador, la instantánea base y la revisión.
       */}
       {edicionAbierta && (
-        <Overlay
-          open
-          onClose={cerrarEdicion}
-          title="Editar cliente"
-          puedeCerrar={!guardandoEdicion}
-        >
-          <FormularioCliente
-            cliente={cliente}
-            onCerrar={cerrarEdicion}
-            onGuardandoCambia={setGuardandoEdicion}
-          />
-        </Overlay>
+        <EdicionCliente cliente={cliente} onCerrar={cerrarEdicion} />
       )}
 
       {ACCIONES.filter(({ clave }) => clave === accion).map(({ clave, label, issue }) => (
@@ -209,6 +197,38 @@ export function FichaCliente({ id }: { id: string }) {
         </Overlay>
       ))}
     </div>
+  );
+}
+
+/**
+ * Overlay de edición. Igual que el de alta en ClientesScreen: el bloqueo del
+ * cierre vive aquí, no en `FichaCliente`, para que muera con el formulario.
+ * Si viviera en la ficha —que sobrevive al cierre del overlay— quedaría pegado
+ * a `true` al desmontarse el formulario en medio de un guardado, y al reabrir
+ * seguirían bloqueados Esc, el scrim y la X sin estar guardando nada.
+ */
+function EdicionCliente({
+  cliente,
+  onCerrar,
+}: {
+  cliente: ClienteEditable;
+  onCerrar: () => void;
+}) {
+  const [guardando, setGuardando] = useState(false);
+
+  return (
+    <Overlay
+      open
+      onClose={onCerrar}
+      title="Editar cliente"
+      puedeCerrar={!guardando}
+    >
+      <FormularioCliente
+        cliente={cliente}
+        onCerrar={onCerrar}
+        onGuardandoCambia={setGuardando}
+      />
+    </Overlay>
   );
 }
 

@@ -51,9 +51,6 @@ export function ClientesScreen() {
   const clientes = useQuery(api.clientes.listar, args);
 
   const [consulta, setConsulta] = useState("");
-  // Mientras el alta esta escribiendo en el servidor, el overlay no se puede
-  // cerrar: Esc, scrim y X no pasan por los botones del formulario.
-  const [guardandoAlta, setGuardandoAlta] = useState(false);
   const q = consulta.trim().toLowerCase();
 
   const filtrados = useMemo(() => {
@@ -171,21 +168,39 @@ export function ClientesScreen() {
       </Fab>
 
       {/* Solo se monta el abierto: Overlay usa un id de título fijo. */}
-      {altaAbierta && (
-        <Overlay
-          open
-          onClose={cerrarAlta}
-          title="Nuevo cliente"
-          puedeCerrar={!guardandoAlta}
-        >
-          <FormularioCliente
-            cliente={null}
-            onCerrar={cerrarAlta}
-            onGuardandoCambia={setGuardandoAlta}
-          />
-        </Overlay>
-      )}
+      {altaAbierta && <AltaCliente onCerrar={cerrarAlta} />}
     </div>
+  );
+}
+
+/**
+ * Overlay de alta. Existe como componente aparte para que el bloqueo del cierre
+ * viva en el MISMO ciclo de vida que el formulario.
+ *
+ * Si ese estado estuviese en `ClientesScreen` —que no se desmonta al cerrar el
+ * overlay— se quedaría pegado a `true` cuando el formulario se desmonta en medio
+ * de un guardado (por ejemplo volviendo atrás desde `?nuevo=1`), y al reabrir
+ * seguirían bloqueados Esc, el scrim y la X sin que nada estuviera guardando.
+ *
+ * Y al ser estado de instancia, la respuesta de un envío antiguo no puede
+ * desbloquear un envío posterior: cada apertura trae su propio estado.
+ */
+function AltaCliente({ onCerrar }: { onCerrar: () => void }) {
+  const [guardando, setGuardando] = useState(false);
+
+  return (
+    <Overlay
+      open
+      onClose={onCerrar}
+      title="Nuevo cliente"
+      puedeCerrar={!guardando}
+    >
+      <FormularioCliente
+        cliente={null}
+        onCerrar={onCerrar}
+        onGuardandoCambia={setGuardando}
+      />
+    </Overlay>
   );
 }
 
