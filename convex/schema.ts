@@ -55,7 +55,26 @@ export default defineSchema({
       v.literal("error") // Perdido
     ),
     ultimoContacto: v.string(), // fecha ISO (YYYY-MM-DD)
-  }).index("by_estado", ["estado"]),
+    /**
+     * Contador de versión para detectar ediciones concurrentes (LUI-10).
+     * Lo incrementa el servidor en cada `clientes.actualizar`; el formulario
+     * manda la revisión con la que se abrió y la mutation rechaza el guardado
+     * si no coincide, en vez de pisar el cambio ajeno en silencio.
+     *
+     * Es un ENTERO, no una marca de tiempo: `Date.now()` no garantiza cambiar
+     * entre dos escrituras seguidas, y entonces un formulario antiguo pasaría
+     * la comparación.
+     *
+     * Opcional porque los clientes del seed se crearon antes de que existiera;
+     * se tratan como revisión 0. Toda escritura futura sobre los campos
+     * editables del cliente DEBE incrementarlo, o quedará fuera de la protección.
+     */
+    revision: v.optional(v.number()),
+  })
+    .index("by_estado", ["estado"])
+    // Orden de la lista de clientes (LUI-9): contacto más reciente primero, que
+    // es donde aparece el cliente recién creado.
+    .index("by_ultimo_contacto", ["ultimoContacto"]),
 
   interacciones: defineTable({
     clienteId: v.id("clientes"),
