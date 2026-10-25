@@ -13,6 +13,7 @@ import type * as clientes from "../clientes.js";
 import type * as lib_authz from "../lib/authz.js";
 import type * as lib_password from "../lib/password.js";
 import type * as lib_validacionCliente from "../lib/validacionCliente.js";
+import type * as pruebas from "../pruebas.js";
 import type * as seed from "../seed.js";
 import type * as seguimientos from "../seguimientos.js";
 import type * as usuarios from "../usuarios.js";
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   "lib/authz": typeof lib_authz;
   "lib/password": typeof lib_password;
   "lib/validacionCliente": typeof lib_validacionCliente;
+  pruebas: typeof pruebas;
   seed: typeof seed;
   seguimientos: typeof seguimientos;
   usuarios: typeof usuarios;
