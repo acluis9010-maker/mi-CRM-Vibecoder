@@ -102,6 +102,11 @@
   from { transform: scale(0.96); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+/* Entrada de la ficha de cliente, como en el prototipo. */
+@keyframes vibe-slide-left {
+  from { transform: translateX(16px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
 
 /* Modo oscuro (opt-in vía data-theme="dark") — redefine solo los semánticos */
 :root[data-theme="dark"] {

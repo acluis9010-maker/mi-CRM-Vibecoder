@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { Check, Pencil, Plus, TrendingUp, Users } from "lucide-react";
@@ -32,12 +33,19 @@ type Seguimiento = FunctionReturnType<
   typeof api.seguimientos.listarPendientes
 >[number];
 
-/** Formularios aún por construir; el chrome del overlay ya es el definitivo. */
+/**
+ * Accesos rápidos. Los que llevan `href` navegan a un formulario que YA existe;
+ * los que no, abren un overlay con el cuerpo por construir (el chrome del
+ * overlay ya es el definitivo).
+ */
 const ACCIONES = [
-  { clave: "tarea", label: "Nueva tarea", Icon: Plus, destacada: true, issue: "LUI-14" },
-  { clave: "interaccion", label: "Anotar interacción", Icon: Pencil, destacada: false, issue: "LUI-12" },
-  { clave: "venta", label: "Registrar venta", Icon: TrendingUp, destacada: false, issue: "LUI-19" },
-  { clave: "cliente", label: "Nuevo cliente", Icon: Users, destacada: false, issue: "LUI-10" },
+  { clave: "tarea", label: "Nueva tarea", Icon: Plus, destacada: true, issue: "LUI-14", href: undefined },
+  { clave: "interaccion", label: "Anotar interacción", Icon: Pencil, destacada: false, issue: "LUI-12", href: undefined },
+  { clave: "venta", label: "Registrar venta", Icon: TrendingUp, destacada: false, issue: "LUI-19", href: undefined },
+  // El alta de cliente ya está construida (LUI-10), así que este tile lleva al
+  // formulario real. Dejarlo como "por construir" haría parecer que crear
+  // clientes no está disponible desde la pantalla de inicio.
+  { clave: "cliente", label: "Nuevo cliente", Icon: Users, destacada: false, issue: "LUI-10", href: "/clientes?nuevo=1" },
 ] as const;
 
 type ClaveAccion = (typeof ACCIONES)[number]["clave"];
@@ -60,6 +68,7 @@ export function HoyScreen() {
    */
   const hoy = useSyncExternalStore(SIN_CAMBIOS, hoyISO, () => null);
 
+  const router = useRouter();
   const [overlay, setOverlay] = useState<ClaveAccion | null>(null);
 
   /**
@@ -192,11 +201,15 @@ export function HoyScreen() {
       </header>
 
       <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-        {ACCIONES.map(({ clave, label, Icon, destacada }) => (
+        {ACCIONES.map(({ clave, label, Icon, destacada, href }) => (
           <button
             key={clave}
             type="button"
-            onClick={() => setOverlay(clave)}
+            onClick={() =>
+              href !== undefined
+                ? router.push(href, { scroll: false })
+                : setOverlay(clave)
+            }
             className={`flex min-h-[60px] w-full cursor-pointer items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3.5 text-left shadow-xs transition-[background-color,border-color] duration-[var(--duration-fast)] ease-[var(--ease-standard)] hover:border-border-strong hover:bg-surface-2 ${ANILLO_FOCO}`}
           >
             <span
@@ -252,7 +265,8 @@ export function HoyScreen() {
         </>
       )}
 
-      {ACCIONES.map(({ clave, label, issue }) => (
+      {/* Los que navegan no tienen overlay que montar. */}
+      {ACCIONES.filter(({ href }) => href === undefined).map(({ clave, label, issue }) => (
         <Overlay
           key={clave}
           open={overlay === clave}

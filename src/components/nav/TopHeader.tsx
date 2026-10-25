@@ -4,10 +4,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { ANILLO_FOCO } from "@/components/ui/foco";
 import { useSesion } from "@/lib/sesion";
-import { llevaBotonAtras, tituloDeRuta } from "./navegacion";
+import { accionDeRuta, llevaBotonAtras, tituloDeRuta } from "./navegacion";
 
 /**
  * Header superior (LUI-8). Diseño: CRM Shell.dc.html L97-114.
@@ -22,6 +23,7 @@ export function TopHeader() {
   const { usuario } = useSesion();
 
   const atras = llevaBotonAtras(pathname);
+  const accion = accionDeRuta(pathname);
 
   return (
     <header className="z-10 flex h-[60px] shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
@@ -41,6 +43,21 @@ export function TopHeader() {
         >
           <Avatar name={usuario.nombre} variant="neutral" size={32} />
         </Link>
+      )}
+      {accion !== null && (
+        <Button
+          variant={accion.variante}
+          size="compact"
+          iconLeft={
+            accion.Icon ? <accion.Icon size={18} strokeWidth={1.75} /> : undefined
+          }
+          // `scroll: false` para no saltar al principio de la lista al abrir el
+          // formulario: el overlay se monta encima, la pantalla no cambia.
+          onClick={() => router.push(accion.href, { scroll: false })}
+          className={accion.soloEscritorio ? "hidden md:inline-flex" : ""}
+        >
+          {accion.label}
+        </Button>
       )}
     </header>
   );

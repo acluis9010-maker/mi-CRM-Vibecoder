@@ -33,6 +33,23 @@ export function etiquetaVence(dias: number): string {
 }
 
 /**
+ * Subtítulo de la fila de cliente: "Hoy" / "Ayer" / "Hace N días" /
+ * "Hace N semanas". Equivale a `ultimoLabel` del prototipo (L928).
+ *
+ * Umbrales exactos del diseño: de 2 a 6 días va en días (siempre en plural, no
+ * hay "Hace 1 día" porque ese caso es "Ayer"), y a partir de 7 en semanas
+ * redondeadas, así que 7-10 días se muestran como "Hace 1 semana".
+ */
+export function etiquetaUltimoContacto(iso: string, hoy: string): string {
+  const dias = diasDeRetraso(iso, hoy);
+  if (dias <= 0) return "Hoy";
+  if (dias === 1) return "Ayer";
+  if (dias < 7) return `Hace ${dias} días`;
+  const semanas = Math.round(dias / 7);
+  return `Hace ${semanas} ${semanas === 1 ? "semana" : "semanas"}`;
+}
+
+/**
  * Eyebrow de la pantalla Hoy: "MARTES, 23 DE JUNIO".
  * El prototipo la trae hardcodeada (L1371); aquí es la fecha real.
  */
